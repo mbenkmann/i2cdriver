@@ -160,7 +160,7 @@ int readFromSerialPort(int fd, uint8_t *b, size_t s)
 {
   ssize_t n, t;
   t = 0;
-  while (t < s) {
+  while (t < (ssize_t)s) {
     n = read(fd, b + t, s);
     if (n > 0)
       t += n;
@@ -175,9 +175,8 @@ int readFromSerialPort(int fd, uint8_t *b, size_t s)
   return s;
 }
 
-void writeToSerialPort(int fd, const uint8_t *b, size_t s)
+int writeToSerialPort(int fd, const uint8_t *b, size_t s)
 {
-  write(fd, b, s);
 #ifdef VERBOSE
   printf("WRITE %u: ", (int)s);
   int i;
@@ -185,6 +184,7 @@ void writeToSerialPort(int fd, const uint8_t *b, size_t s)
     printf("%02x ", 0xff & b[i]);
   printf("\n");
 #endif
+  return write(fd, b, s);
 }
 #endif              // }
 
@@ -526,7 +526,7 @@ int i2c_commands(I2CDriver *sd, int argc, char *argv[])
 
         i2c_monitor(sd, 1);
         printf("[Hit return to exit monitor mode]\n");
-        fgets(line, sizeof(line) - 1, stdin);
+        if (fgets(line, sizeof(line) - 1, stdin)){};
         i2c_monitor(sd, 0);
       }
       break;
