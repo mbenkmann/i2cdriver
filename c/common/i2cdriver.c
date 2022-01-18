@@ -291,7 +291,7 @@ void i2c_getstatus(I2CDriver *sd)
   bytesRead = readFromSerialPort(sd->port, readbuffer, 80);
   readbuffer[bytesRead] = 0;
   // printf("%d Bytes were read: %.*s\n", bytesRead, bytesRead, readbuffer);
-  sscanf((char*)readbuffer, "[%15s %8s %" SCNu64 " %f %f %f %c %d %d %d %d %x ]",
+  sscanf((char*)readbuffer, "[%15s %8s %" SCNu64 " %f %f %f %c %d %d %d %x %x ]",
     sd->model,
     sd->serial,
     &sd->uptime,
