@@ -1,0 +1,23 @@
+{
+    "actionButtons": {
+        "defaultColor": "#ff0034", // Can also use string color names.
+        "loadNpmCommands":false, // Disables automatic generation of actions for npm commands.
+        "reloadButton":null, // Custom reload button text or icon (default ↻). null value enables automatic reload on configuration change
+        "commands": [
+            {
+                "cwd": "${workspaceFolder}",     // Terminal initial folder ${workspaceFolder} and os user home as defaults
+                "name": "Clean",
+                "color": "white",
+                "singleInstance": true,  // Kill previous running instance if button pressed while still running
+                "command": "make -f linux/Makefile clean", // This is executed in the terminal.
+            },
+            {
+                "cwd": "${workspaceFolder}",     // Terminal initial folder ${workspaceFolder} and os user home as defaults
+                "name": "Build",
+                "color": "white",
+                "singleInstance": true,  // Kill previous running instance if button pressed while still running
+                "command": "make -f linux/Makefile build/i2cdriver", // This is executed in the terminal.
+            }            
+        ]
+    }
+}

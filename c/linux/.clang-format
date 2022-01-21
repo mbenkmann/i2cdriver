@@ -1,0 +1,10 @@
+--- 
+Language: Cpp
+BasedOnStyle: LLVM
+UseTab: Never
+BreakBeforeBraces: Allman
+AllowShortIfStatementsOnASingleLine: false
+IndentCaseLabels: true 
+ColumnLimit: '120'
+IndentWidth: 4
+PointerAlignment: Left

@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/common","${workspaceFolder}/linux","/usr/include/fuse3"
+            ],
+            "defines": [
+                "_GNU_SOURCE","FUSE_USE_VERSION=31"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "gnu17",
+            "cppStandard": "gnu++20",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+
+    ],
+    "version": 4
+}
