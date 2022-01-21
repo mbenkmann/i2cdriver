@@ -1,0 +1,210 @@
+.TH i2cdriver 1 "Feb 2022" i2cdriver "User Manual"
+
+.SH NAME
+.PP
+i2cdriver \- universal control program for the I²Cdriver device
+
+
+.SH SYNOPSIS
+.PP
+i2cdriver [options]
+
+
+.SH BUILDING and INSTALLATION
+.PP
+see end of this document
+
+
+.SH DESCRIPTION
+.PP
+The i2cdriver program aims to be the swiss army knife of command line tools to control
+and use the I²Cdriver device. It offers the following major features:
+
+.SS Activate USB Low Latency mode
+.PP
+Improves throughput of transfers. Requires root permissions. Once set this persists until
+the I²Cdriver is unplugged or the computer is powered down.
+
+.SS Configure I²Cdriver
+.PP
+Enable/Disable pullup resistors, set the clock rate, set monitor mode,...
+
+.SS Capture I²C Events
+.PP
+Capture mode snoops the I²C bus and prints all observed events to stdout.
+Output uses ANSI colors to make the display easier to read. The colors used are
+similar to those used by the I²Cdriver device's physical display for monitor mode.
+
+.SS Emulate a Linux /dev/i2c\-* device
+.PP
+This allows the use of programs written for the Linux i2c API, such as stm32flash to
+be used with the I²Cdriver device.
+
+
+.SH OPTIONS
+.PP
+Long options can be abbreviated to a unique prefix.
+
+.PP
+\fB\fC\-\-help\fR                Print usage and exit.
+
+.PP
+\fB\fC\-d[<name>]\fR
+.br
+\fB\fC\-\-dev[=<name>]\fR       (requires /dev/cuse permissions) create /dev/\fB\fC<name>\fR to emulate a
+                     /dev/i2c\-...  bus device.
+
+.PP
+\fB\fC\-b\fR, \fB\fC\-\-background\fR      Handle \-\-dev in the background.
+
+.PP
+\fB\fC\-t <ttypath>\fR
+.br
+\fB\fC\-\-tty=<ttypath>\fR      Path to the ttyUSB device.
+                     Not required if there is only 1 possibility.
+
+.PP
+\fB\fC\-p <kOhm>\fR
+.br
+\fB\fC\-\-pullups=<kOhm>\fR     Set pullups for SCL and SDA.
+                     Values are 0, 1.1, 1.5, 2.2, 4.3, 4.7 .
+
+.PP
+\fB\fC\-k 100|400\fR
+.br
+\fB\fC\-\-kHz=100|400\fR        Set baud rate to 100kHz or 400kHz.
+
+.PP
+\fB\fC\-\-ll\fR                 Set USB latency to minimum (i.e. 1ms).
+
+.PP
+\fB\fC\-\-reset\fR              Attempt to unblock confused I2C devices to free up the I2C bus.
+
+.PP
+\fB\fC\-\-reboot\fR             Reboot the I2CDriver hardware. Takes half a second.
+
+.PP
+\fB\fC\-i\fR, \fB\fC\-\-info\fR           Print out the current status and configuration of the I2CDriver.
+
+.PP
+\fB\fC\-s\fR, \fB\fC\-\-scan\fR           Try to read from all I2C addresses
+                     and print out addresses on which a device replies.
+
+.PP
+\fB\fC\-m\fR, \fB\fC\-\-monitor\fR        Switch the I2CDriver to monitor mode after all transmissions
+                     and capturing are done.
+
+.PP
+\fB\fC\-c <secs>\fR
+.br
+\fB\fC\-\-capture=<secs>\fR     After all transmissions, capture events for \fB\fC<secs>\fR seconds
+                     and decode them to stdout.
+
+.PP
+\fB\fC\-\-transfer=<data>\fR    Perform I2C transfer(s) according to \fB\fC<data>\fR\&. See below for details.
+
+.PP
+\fB\fC\-\-pec\fR                Attach a Packet Error Checking byte to each subsequent
+                     write\-only \fB\fC\-\-transfer\fR datastream. Report PEC for read and write transfers.
+
+
+.SH TRANSFER DATA STRING
+.PP
+A transfer may consist of multiple messages and is started with a START condition and ends with a STOP condition. Messages within the transfer are concatenated using a REPEATED START condition.
+
+.PP
+Messages and message data within the transfer data string are separated by whitespace or ','.
+
+.PP
+Each message begins with a descriptor of the following format:
+
+.PP
+\fB\fC{r|w}<length\_of\_message>[@address]\fR   Example: \fB\fCr3@0x50\fR
+
+.PP
+\fB\fC{r|w}\fR               'r' indicates a read (device\->PC); 'w' indicates a write (PC\->device).
+.br
+\fB\fC<length\_of\_message>\fR  Number of bytes to read/write (0\-65535).
+.br
+  \fB\fC?\fR                 '?' as length for a read message causes 1 byte to be read
+.br
+                     and that byte determines how many more bytes will be read.
+.br
+\fB\fC@address\fR             Address of the target device. Only required for the first message.
+                     If omitted, the address from the prior message will be reused.
+
+.PP
+If the I2C message is a write, then a data block specifying the required number of bytes must follow the descriptor. It consists of \fB\fC<length\_of\_message>\fR numbers, separated by
+whitespace or ','.
+.br
+To make it easier to create larger data blocks, a number may have a suffix:
+
+.PP
+\fB\fC=\fR      keep value constant until end of message (i.e. \fB\fC0=\fR means \fB\fC0, 0, 0, ...\fR)
+
+.PP
+\fB\fC+\fR      increase value by 1 until end of message (i.e. \fB\fC0+\fR means \fB\fC0, 1, 2, ...\fR)
+
+.PP
+\fB\fC\-\fR      decrease value by 1 until end of message (i.e. \fB\fC0xff\-\fR means \fB\fC0xff, 0xfe, 0xfd, ...\fR)
+
+.PP
+\fB\fCp\fR      use value as seed for an 8 bit pseudo random sequence
+(i.e. \fB\fC0p\fR means \fB\fC0x00, 0x50, 0xb0, ...\fR)
+
+
+.SH EXAMPLES
+.PP
+.RS
+
+.nf
+i2cdriver \-\-kHz=100 \-\-pullups=0 \-\-ll \-\-tty=/dev/ttyUSB0 \-\-info
+
+i2cdriver \-\-capture=1000
+
+i2cdriver \-\-ll \-\-tty=/dev/ttyUSB0 \-\-kHz=400 \-\-pullups=4.7 \-\-dev=i2c\-22
+
+i2cdriver \-\-transfer="w2@0x50 0x12 0x34, r2"
+i2cdriver \-\-transfer=w2@80,18,52,r2
+i2cdriver \-\-transfer="r?@0x77"
+i2cdriver \-\-transfer="w1024@0x77 0p"
+
+.fi
+.RE
+
+
+.SH BUILDING AND INSTALLATION
+.SS Requirements
+.PP
+On Debian/Ubuntu\-based systems to build the main program
+
+.PP
+\fB\fCapt install build\-essential libfuse3\-dev\fR
+
+.PP
+To build the manpage (optional)
+
+.PP
+\fB\fCapt install go\-md2man\fR
+
+.SS Building
+.PP
+\fB\fCcd i2cdriver/c\fR
+.br
+\fB\fCmake \-f linux/Makefile\fR
+
+.SS Installing
+.PP
+To install under \fB\fC/usr/local\fR:
+
+.PP
+\fB\fCmake \-f linux/Makefile install\fR
+
+.PP
+To install under \fB\fC/usr\fR:
+
+.PP
+\fB\fCmake \-f linux/Makefile DESTDIR=/usr install\fR
+
+
+.SH SEE ALSO
