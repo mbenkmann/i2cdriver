@@ -58,7 +58,7 @@ Long options can be abbreviated to a unique prefix.
 \fB\fC\-b\fR, \fB\fC\-\-background\fR      Handle \-\-dev in the background.
 
 .PP
-\fB\fC\-t <ttypath>\fR
+\fB\fC\-y <ttypath>\fR
 .br
 \fB\fC\-\-tty=<ttypath>\fR      Path to the ttyUSB device.
                      Not required if there is only 1 possibility.
@@ -101,6 +101,8 @@ Long options can be abbreviated to a unique prefix.
                      and decode them to stdout.
 
 .PP
+\fB\fC\-t <data>\fR
+.br
 \fB\fC\-\-transfer=<data>\fR    Perform I2C transfer(s) according to \fB\fC<data>\fR\&. See below for details.
 
 .PP
@@ -206,5 +208,33 @@ To install under \fB\fC/usr\fR:
 .PP
 \fB\fCmake \-f linux/Makefile DESTDIR=/usr install\fR
 
+.SS Example udev rule
+.PP
+If the device created by \fB\fC\-\-dev\fR is supposed to be used by an unprivileged user, it is
+useful to create a udev rule like the following which makes the device \fB\fCi2c\-22\fR available to user \fB\fCdoofus\fR and group \fB\fCdoofus\fR automatically whenever it is created.
+That way you do not manually have to adjust ownership and/or permissions whenever you
+use the \fB\fC\-\-dev\fR option.
+
+.PP
+.RS
+
+.nf
+SUBSYSTEM=="cuse", KERNEL=="i2c\-22", OWNER="doofus", GROUP="doofus", MODE="0660"
+
+.fi
+.RE
+
+.PP
+Note that this does not change the permissions of the \fB\fC/dev/cuse\fR device, access to which is required to use the \fB\fC\-\-dev\fR option.
+
+
+.SH BUGS
+.PP
+At the time of this writing, output from \-\-capture does not show all START conditions as
+"S" symbol. This is a bug in the i2cdriver device firmware that causes it to not report
+the START condition sometimes.
+
 
 .SH SEE ALSO
+.PP
+i2ctransfer(8),i2cdetect(8),i2cdump(8),i2cget(8),i2cset(8)

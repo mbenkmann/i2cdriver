@@ -179,8 +179,8 @@ const option::Descriptor usage[] = {
      "  -d[<name>], \t--dev[=<name>]"
      "  \t(requires /dev/cuse permissions) create /dev/<name> to emulate a /dev/i2c-... bus device."},
     {BACKGROUND, 0, "b", "background", Arg::None, "  -b, \t--background  \tHandle --dev in the background."},
-    {TTY, 0, "t", "tty", Arg::Required,
-     "  -t <ttypath>, \t--tty=<ttypath>  \tPath to the ttyUSB device. Not required if there is only 1 possibility."},
+    {TTY, 0, "y", "tty", Arg::Required,
+     "  -y <ttypath>, \t--tty=<ttypath>  \tPath to the ttyUSB device. Not required if there is only 1 possibility."},
     {PULLUPS, 0, "p", "pullups", Arg::Pullups,
      "  -p <kOhm>, \t--pullups=<kOhm>"
      "  \tSet pullups for SCL and SDA. Values are 0, 1.1, 1.5, 2.2, 4.3, 4.7 ."},
@@ -208,8 +208,8 @@ const option::Descriptor usage[] = {
     {CAPTURE, 0, "c", "capture", Arg::NonNegative,
      " -c <secs>, \t--capture=<secs>"
      "  \tAfter all transmissions, capture events for <secs> seconds and decode them to stdout."},
-    {TRANSFER, 0, "", "transfer", Arg::Required,
-     "  \t--transfer=<data>"
+    {TRANSFER, 0, "t", "transfer", Arg::Required,
+     " -t, \t--transfer=<data>"
      "  \tPerform I2C transfer(s) according to <data>. See below for details."},
     {PEC, 0, "", "pec", Arg::None,
      "  \t--pec"

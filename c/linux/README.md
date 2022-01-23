@@ -41,7 +41,7 @@ Long options can be abbreviated to a unique prefix.
 
 `-b`, `--background`      Handle --dev in the background.
 
-`-t <ttypath>`   
+`-y <ttypath>`   
 `--tty=<ttypath>`      Path to the ttyUSB device.
                      Not required if there is only 1 possibility.
 
@@ -70,6 +70,7 @@ Long options can be abbreviated to a unique prefix.
 `--capture=<secs>`     After all transmissions, capture events for `<secs>` seconds
                      and decode them to stdout.
 
+`-t <data>`  
 `--transfer=<data>`    Perform I2C transfer(s) according to `<data>`. See below for details.
 
 `--pec`                Attach a Packet Error Checking byte to each subsequent
@@ -145,5 +146,24 @@ To install under `/usr`:
 
 `make -f linux/Makefile DESTDIR=/usr install`
 
+### Example udev rule
+If the device created by `--dev` is supposed to be used by an unprivileged user, it is
+useful to create a udev rule like the following which makes the device `i2c-22` available to user `doofus` and group `doofus` automatically whenever it is created.
+That way you do not manually have to adjust ownership and/or permissions whenever you
+use the `--dev` option.
+
+```
+SUBSYSTEM=="cuse", KERNEL=="i2c-22", OWNER="doofus", GROUP="doofus", MODE="0660"
+```
+
+Note that this does not change the permissions of the `/dev/cuse` device, access to which is required to use the `--dev` option.
+
+
+# BUGS
+At the time of this writing, output from --capture does not show all START conditions as
+"S" symbol. This is a bug in the i2cdriver device firmware that causes it to not report
+the START condition sometimes.
 
 # SEE ALSO
+ i2ctransfer(8),i2cdetect(8),i2cdump(8),i2cget(8),i2cset(8)
+ 
