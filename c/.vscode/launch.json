@@ -10,7 +10,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/i2cdriver",
-            "args":["--ll"], //["--kHz=100","--pullups=0","--transfer=w2@027 0x77 0x66"],
+            "args":["--kHz=100","--pullups=0","--dev=i2c-22"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

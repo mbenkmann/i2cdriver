@@ -6,7 +6,7 @@
         {
             "label": "Build Linux",
             "type": "shell",
-            "command": "make -f linux/Makefile OPTIMIZE=\"-O0 -g\"",
+            "command": "make -f linux/Makefile OPTIMIZE=\"-O0 -g\" build/i2cdriver",
             "group": {
                 "kind": "build",
                 "isDefault": true
