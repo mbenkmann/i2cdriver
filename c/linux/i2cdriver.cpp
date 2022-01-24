@@ -182,8 +182,8 @@ const option::Descriptor usage[] = {
      "  -d[<name>], \t--dev[=<name>]"
      "  \t(requires /dev/cuse permissions) create /dev/<name> to emulate a /dev/i2c-... bus device."},
     {BACKGROUND, 0, "b", "background", Arg::None, "  -b, \t--background  \tHandle --dev in the background."},
-    {TTY, 0, "y", "tty", Arg::Required,
-     "  -y <ttypath>, \t--tty=<ttypath>  \tPath to the ttyUSB device. Not required if there is only 1 possibility."},
+    {TTY, 0, "t", "tty", Arg::Required,
+     "  -t <ttypath>, \t--tty=<ttypath>  \tPath to the ttyUSB device. Not required if there is only 1 possibility."},
     {PULLUPS, 0, "p", "pullups", Arg::Pullups,
      "  -p <kOhm>, \t--pullups=<kOhm>"
      "  \tSet pullups for SCL and SDA. Values are 0, 1.1, 1.5, 2.2, 4.3, 4.7 ."},
@@ -211,13 +211,13 @@ const option::Descriptor usage[] = {
     {CAPTURE, 0, "c", "capture", Arg::NonNegative,
      " -c <secs>, \t--capture=<secs>"
      "  \tAfter all transmissions, capture events for <secs> seconds and decode them to stdout."},
-    {TRANSFER, 0, "t", "transfer", Arg::Required,
-     " -t, \t--transfer=<data>"
+    {TRANSFER, 0, "x", "xfer", Arg::Required,
+     " -x, \t--xfer=<data>"
      "  \tPerform I2C transfer(s) according to <data>. See below for details."},
     {PEC, 0, "", "pec", Arg::None,
      "  \t--pec"
-     "  \tAttach a Packet Error Checking byte to each subsequent write-only --transfer datastream. Report PEC for read "
-     "and write --transfers."},
+     "  \tAttach a Packet Error Checking byte to each subsequent write-only --xfer datastream. Report PEC for read "
+     "and write --xfers."},
     {UNKNOWN, 0, "", "", Arg::None,
      "\nTRANSFER DATA STRING:\n"
      "A transfer may consist of multiple messages and is started with a START condition and ends with a STOP "
@@ -244,10 +244,10 @@ const option::Descriptor usage[] = {
     {UNKNOWN, 0, "", "", Arg::None,
      "EXAMPLES:\n"
      "  i2cdriver --kHz=100 --pullups=0 --ll --tty=/dev/ttyUSB0 --info\n"
-     "  i2cdriver --transfer=\"w2@0x50 0x12 0x34, r2\"\n"
-     "  i2cdriver --transfer=w2@80,18,52,r2\n"
-     "  i2cdriver --transfer=\"r?@0x77\"\n"
-     "  i2cdriver --transfer=\"w1024@0x77 0p\"\n"
+     "  i2cdriver --xfer=\"w2@0x50 0x12 0x34, r2\"\n"
+     "  i2cdriver --xfer=w2@80,18,52,r2\n"
+     "  i2cdriver --xfer=\"r?@0x77\"\n"
+     "  i2cdriver --xfer=\"w1024@0x77 0p\"\n"
      "  i2cdriver --capture=1000\n"},
     {0, 0, 0, 0, 0, 0}};
 
@@ -1410,7 +1410,7 @@ bool parse_transfer(int argc, const char* argv[], struct i2c_msg (&msgs)[I2C_RDW
 
         if (nmsgs > I2C_RDRW_IOCTL_MAX_MSGS)
         {
-            fprintf(stderr, "Error: Too many messages for --transfer (max: %d)\n", I2C_RDRW_IOCTL_MAX_MSGS);
+            fprintf(stderr, "Error: Too many messages for --xfer (max: %d)\n", I2C_RDRW_IOCTL_MAX_MSGS);
             return false;
         }
 
@@ -1479,7 +1479,7 @@ bool parse_transfer(int argc, const char* argv[], struct i2c_msg (&msgs)[I2C_RDW
                     /* Reuse last address if possible */
                     if (address < 0)
                     {
-                        fprintf(stderr, "Error: Missing address in --transfer string\n");
+                        fprintf(stderr, "Error: Missing address in --xfer string\n");
                         return false;
                     }
                 }
@@ -1493,7 +1493,7 @@ bool parse_transfer(int argc, const char* argv[], struct i2c_msg (&msgs)[I2C_RDW
                 buf = (__u8*)malloc(len);
                 if (!buf)
                 {
-                    fprintf(stderr, "Error: Not enough memory for --transfer buffer\n");
+                    fprintf(stderr, "Error: Not enough memory for --xfer buffer\n");
                     return false;
                 }
                 memset(buf, 0, len);
@@ -1571,7 +1571,7 @@ bool parse_transfer(int argc, const char* argv[], struct i2c_msg (&msgs)[I2C_RDW
 
     if (state != PARSE_GET_DESC || nmsgs == 0)
     {
-        fprintf(stderr, "Error: Incomplete --transfer string\n");
+        fprintf(stderr, "Error: Incomplete --xfer string\n");
         return false;
     }
 

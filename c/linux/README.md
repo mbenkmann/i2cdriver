@@ -41,7 +41,7 @@ Long options can be abbreviated to a unique prefix.
 
 `-b`, `--background`      Handle --dev in the background.
 
-`-y <ttypath>`   
+`-t <ttypath>`   
 `--tty=<ttypath>`      Path to the ttyUSB device.
                      Not required if there is only 1 possibility.
 
@@ -70,11 +70,11 @@ Long options can be abbreviated to a unique prefix.
 `--capture=<secs>`     After all transmissions, capture events for `<secs>` seconds
                      and decode them to stdout.
 
-`-t <data>`  
-`--transfer=<data>`    Perform I2C transfer(s) according to `<data>`. See below for details.
+`-x <data>`  
+`--xfer=<data>`    Perform I2C transfer(s) according to `<data>`. See below for details.
 
 `--pec`                Attach a Packet Error Checking byte to each subsequent
-                     write-only `--transfer` datastream. Report PEC for read and write transfers.
+                     write-only `--xfer` datastream. Report PEC for read and write transfers.
 
 # TRANSFER DATA STRING
 A transfer may consist of multiple messages and is started with a START condition and ends with a STOP condition. Messages within the transfer are concatenated using a REPEATED START condition.
@@ -115,10 +115,10 @@ i2cdriver --capture=1000
 
 i2cdriver --ll --tty=/dev/ttyUSB0 --kHz=400 --pullups=4.7 --dev=i2c-22
 
-i2cdriver --transfer="w2@0x50 0x12 0x34, r2"
-i2cdriver --transfer=w2@80,18,52,r2
-i2cdriver --transfer="r?@0x77"
-i2cdriver --transfer="w1024@0x77 0p"
+i2cdriver --xfer="w2@0x50 0x12 0x34, r2"
+i2cdriver --xfer=w2@80,18,52,r2
+i2cdriver --xfer="r?@0x77"
+i2cdriver --xfer="w1024@0x77 0p"
 ```
 
 # BUILDING AND INSTALLATION
