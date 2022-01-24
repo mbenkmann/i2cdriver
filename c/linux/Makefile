@@ -37,7 +37,7 @@ build/i2ccl: linux/i2c.c common/i2cdriver.c
 	mkdir -p build/
 	$(CC) -o $@ $(CPPFLAGS) $(CFLAGS) $^
 
-build/i2cdriver: linux/i2cdriver.cpp
+build/%: linux/%.cpp
 	mkdir -p build/
 	$(CXX) -o $@ $(CXXFLAGS) $^ $(FUSELIB)
 
