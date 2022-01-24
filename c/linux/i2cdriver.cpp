@@ -38,8 +38,11 @@ char pullups[2] = {(char)255, (char)255};
 struct i2c_msg msgs[I2C_RDWR_IOCTL_MAX_MSGS];
 int nmsgs;
 bool add_pec = false;
+bool debug_cuse = true;
+int cuse_open_count = 0;
 
 bool parse_transfer(int argc, const char* argv[], struct i2c_msg (&msgs)[I2C_RDWR_IOCTL_MAX_MSGS], int& nmsgs);
+int cuse(const char* devname, bool background);
 
 uint64_t micros()
 {
@@ -604,7 +607,8 @@ bool i2cdriverErr()
     return false;
 }
 
-bool i2c_rdwr(struct i2c_rdwr_ioctl_data& rdwr)
+// Returns false if an I/O error occurred.
+bool i2c_rdwr(struct i2c_rdwr_ioctl_data& rdwr, bool dump = true)
 {
     if (rdwr.nmsgs == 0)
         return true;
@@ -720,7 +724,8 @@ endoftransmission:
     }
     i2cd.writeAll("p", 1); // STOP
 
-    i2c_rdwr_dump(rdwr, true, pec.sum());
+    if (dump)
+        i2c_rdwr_dump(rdwr, true, pec.sum());
 
     return !ioerror;
 }
@@ -985,8 +990,25 @@ int main(int argc, char* argv[])
 
     if (options[DEV])
     {
-        fprintf(stdout, "--dev not implemented, yet! Sorry :~-(\n");
-        return 1;
+        add_pec = false; // I don't think we want --pec to apply to messages sent via cuse
+        i2cd.close();
+        i2cd.clearError();
+        const char* devname = options[DEV].last()->arg;
+        if (0 != cuse(devname, options[BACKGROUND]))
+        {
+            fprintf(stderr, "cuse error\n");
+            return 1;
+        }
+        else if (debug_cuse)
+            fprintf(stdout, "cuse device emulation terminated successfully\n");
+
+        // Make sure we leave the device in the requested state
+        i2cd.action("connecting to TTY");
+        i2cd.open();
+        i2cd.setupTTY(B1000000);
+        waitReady();
+        maybeSet(speed);
+        maybeSet2(pullups[0], pullups[1]);
     }
 
     maybeSet(monitor);
@@ -999,6 +1021,355 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+
+/****************************************************************************************
+ * START OF CUSE CODE
+ ***************************************************************************************/
+
+extern "C" void cuse_open(fuse_req_t req, struct fuse_file_info* fi);
+extern "C" void cuse_read(fuse_req_t req, size_t size, off_t off, struct fuse_file_info* fi);
+extern "C" void cuse_write(fuse_req_t req, const char* buf, size_t size, off_t off, struct fuse_file_info* fi);
+extern "C" void cuse_close(fuse_req_t req, struct fuse_file_info* fi);
+extern "C" void cuse_ioctl(fuse_req_t req, int cmd, void* arg, struct fuse_file_info* fi, unsigned int flags,
+                           const void* in_buf, size_t in_bufsz, size_t out_bufsz);
+
+struct per_connection_data
+{
+    int8_t slave_addr = -1;
+};
+
+void cuse_open(fuse_req_t req, struct fuse_file_info* fi)
+{
+    if (debug_cuse)
+        fprintf(stdout, "cuse open\n");
+    fi->fh = (uintptr_t) new per_connection_data;
+    if (fi->fh == 0)
+        fuse_reply_err(req, ENOMEM);
+    else
+    {
+        if (cuse_open_count == 0)
+        {
+            i2cd.action("connecting to TTY");
+            i2cd.open();
+            i2cd.setupTTY(B1000000);
+            if (waitReady() == 1)
+            { // if we have a "hang" of some kind that is NOT an I/O error
+                i2cd.close();
+                i2cd.clearError();
+                fprintf(stderr, "Could not re-connect to i2cdriver!\n");
+                fuse_reply_err(req, EIO);
+            }
+            else // i2cdriver is either ready or an I/O error occurred
+            {
+                maybeSet(speed);
+                maybeSet2(pullups[0], pullups[1]);
+                if (i2cd.hasError())
+                {
+                    fprintf(stderr, "%s\n", i2cd.error());
+                    i2cd.close();
+                    i2cd.clearError();
+                    fuse_reply_err(req, EIO);
+                }
+                else
+                {
+                    ++cuse_open_count;
+                    fuse_reply_open(req, fi);
+                }
+            }
+        }
+        else
+        {
+            ++cuse_open_count;
+            fuse_reply_open(req, fi);
+        }
+    }
+}
+
+void cuse_close(fuse_req_t req, struct fuse_file_info* fi)
+{
+    if (debug_cuse)
+        fprintf(stdout, "cuse close\n");
+    delete (per_connection_data*)fi->fh;
+    if (--cuse_open_count == 0)
+    {
+        i2cd.close();
+        i2cd.clearError();
+    }
+    fuse_reply_err(req, 0);
+}
+
+void cuse_read(fuse_req_t req, size_t size, off_t off, struct fuse_file_info* fi)
+{
+    int8_t slave = ((per_connection_data*)fi->fh)->slave_addr;
+    if (slave < 0 || size > 0xffff)
+    {
+        fuse_reply_err(req, EINVAL);
+    }
+    else
+    {
+        char buf[size + 1];
+        i2c_rdwr_ioctl_data rdwr;
+        rdwr.nmsgs = 1;
+        i2c_msg msg;
+        msg.buf = (unsigned char*)&buf;
+        msg.len = size;
+        msg.addr = slave;
+        msg.flags = I2C_M_RD;
+        rdwr.msgs = &msg;
+        if (!i2c_rdwr(rdwr, debug_cuse))
+        {
+            fprintf(stderr, "cuse read error: %s\n", i2cd.error());
+            fuse_reply_err(req, EIO);
+        }
+        else
+            fuse_reply_buf(req, buf, size);
+    }
+}
+
+void cuse_write(fuse_req_t req, const char* buf, size_t size, off_t off, struct fuse_file_info* fi)
+{
+    int8_t slave = ((per_connection_data*)fi->fh)->slave_addr;
+    if (slave < 0 || size > 0xffff)
+    {
+        fuse_reply_err(req, EINVAL);
+    }
+    else
+    {
+        i2c_rdwr_ioctl_data rdwr;
+        rdwr.nmsgs = 1;
+        i2c_msg msg;
+        msg.buf = (unsigned char*)buf;
+        msg.len = size;
+        msg.addr = slave;
+        msg.flags = 0;
+        rdwr.msgs = &msg;
+        if (!i2c_rdwr(rdwr, debug_cuse))
+        {
+            fprintf(stderr, "cuse write error: %s\n", i2cd.error());
+            fuse_reply_err(req, EIO);
+        }
+        else
+            fuse_reply_write(req, size);
+    }
+}
+
+void cuse_i2c_rdwr(fuse_req_t req, void* arg, const void* in_buf, size_t in_bufsz, size_t out_bufsz)
+{
+    const uint8_t* inptr = (uint8_t*)in_buf;
+    iovec in_iov[I2C_RDWR_IOCTL_MAX_MSGS + 3];
+    iovec out_iov[I2C_RDWR_IOCTL_MAX_MSGS + 3];
+
+    in_iov[0].iov_base = arg;
+    in_iov[0].iov_len = sizeof(i2c_rdwr_ioctl_data);
+    if (in_bufsz == 0)
+    {
+        fuse_reply_ioctl_retry(req, in_iov, 1, NULL, 0);
+        return;
+    }
+
+    const i2c_rdwr_ioctl_data& in_rdwr = *(const i2c_rdwr_ioctl_data*)inptr;
+    if (in_rdwr.nmsgs > I2C_RDWR_IOCTL_MAX_MSGS)
+    {
+        fuse_reply_err(req, EINVAL);
+        return;
+    }
+
+    if (in_rdwr.nmsgs == 0)
+    {
+        fuse_reply_ioctl(req, 0, NULL, 0);
+        return;
+    }
+
+    in_iov[1].iov_base = in_rdwr.msgs;
+    in_iov[1].iov_len = in_rdwr.nmsgs * sizeof(in_rdwr.msgs[0]);
+    if (in_bufsz == sizeof(i2c_rdwr_ioctl_data))
+    {
+        fuse_reply_ioctl_retry(req, in_iov, 2, NULL, 0);
+        return;
+    }
+
+    inptr += in_iov[0].iov_len;
+
+    i2c_rdwr_ioctl_data rdwr;
+    rdwr.msgs = (i2c_msg*)inptr;
+    rdwr.nmsgs = in_rdwr.nmsgs;
+
+    inptr += in_iov[1].iov_len;
+
+    unsigned in_idx = 2;
+    unsigned in_sz = in_iov[0].iov_len + in_iov[1].iov_len;
+    unsigned out_idx = 0;
+    unsigned out_sz = 0;
+
+    for (unsigned i = 0; i < rdwr.nmsgs; i++)
+    {
+        i2c_msg& msg = rdwr.msgs[i];
+        if (msg.flags & I2C_M_RD)
+        {
+            int len = (msg.flags & I2C_M_RECV_LEN) ? 256 : msg.len;
+            out_iov[out_idx].iov_base = msg.buf;
+            out_iov[out_idx].iov_len = len;
+            out_idx++;
+            out_sz += len;
+        }
+        else
+        {
+            in_iov[in_idx].iov_base = msg.buf;
+            in_iov[in_idx].iov_len = msg.len;
+            in_idx++;
+            in_sz += msg.len;
+        }
+    }
+
+    if (in_bufsz != in_sz || out_bufsz != out_sz)
+    {
+        fuse_reply_ioctl_retry(req, in_iov, in_idx, out_iov, out_idx);
+        return;
+    };
+
+    uint8_t* outbuf = (uint8_t*)malloc(out_bufsz);
+    if (outbuf == nullptr)
+    {
+        fuse_reply_err(req, ENOMEM);
+        return;
+    }
+
+    auto outptr = outbuf;
+
+    i2c_msg numsgs[I2C_RDWR_IOCTL_MAX_MSGS];
+    out_idx = 0;
+
+    for (unsigned i = 0; i < rdwr.nmsgs; i++)
+    {
+        i2c_msg& msg = rdwr.msgs[i];
+        numsgs[i] = msg;
+
+        if (msg.flags & I2C_M_RD)
+        {
+            int len = (msg.flags & I2C_M_RECV_LEN) ? 256 : msg.len;
+            out_iov[out_idx].iov_base = outptr;
+            outptr[0] = 0; // in case we return without reading this block make length byte 0
+            // out_iov[out_idx].iov_len = len;
+            numsgs[i].buf = outptr;
+            outptr += len;
+            out_idx++;
+        }
+        else
+        {
+            numsgs[i].buf = (uint8_t*)inptr;
+            inptr += msg.len;
+        }
+    }
+
+    rdwr.msgs = numsgs;
+
+    bool okay = i2c_rdwr(rdwr, debug_cuse);
+
+    if (!okay)
+    {
+        fprintf(stderr, "cuse ioctl(I2C_RDWR) error: %s\n", i2cd.error());
+        fuse_reply_err(req, EIO);
+    }
+    else
+        fuse_reply_ioctl_iov(req, rdwr.nmsgs, out_iov, out_idx);
+
+    free(outbuf);
+}
+
+void cuse_ioctl(fuse_req_t req, int cmd, void* arg, struct fuse_file_info* fi, unsigned flags, const void* in_buf,
+                size_t in_bufsz, size_t out_bufsz)
+{
+    long i2c_slave_addr;
+    static unsigned long i2c_funcs_reply = I2C_FUNC_I2C;
+    if (flags & FUSE_IOCTL_COMPAT)
+    {
+        fuse_reply_err(req, ENOSYS);
+        return;
+    }
+
+    switch (cmd)
+    {
+        case I2C_FUNCS:
+            if (!out_bufsz)
+            {
+                struct iovec iov = {arg, sizeof(i2c_funcs_reply)};
+                fuse_reply_ioctl_retry(req, NULL, 0, &iov, 1);
+            }
+            else
+                fuse_reply_ioctl(req, 0, &i2c_funcs_reply, sizeof(i2c_funcs_reply));
+            break;
+
+        case I2C_SLAVE:
+            i2c_slave_addr = (long)arg;
+            if (debug_cuse)
+                fprintf(stdout, "cuse ioctl(I2C_SLAVE, %ld)\n", i2c_slave_addr);
+
+            if (i2c_slave_addr < 0 || i2c_slave_addr > 127)
+            {
+                fuse_reply_err(req, EINVAL);
+                break;
+            }
+            ((per_connection_data*)fi->fh)->slave_addr = i2c_slave_addr;
+            fuse_reply_ioctl(req, 0, NULL, 0);
+            break;
+
+        case I2C_RDWR:
+            cuse_i2c_rdwr(req, arg, in_buf, in_bufsz, out_bufsz);
+            break;
+
+        default:
+            fuse_reply_err(req, EINVAL);
+    }
+}
+
+int cuse(const char* devname, bool background)
+{
+    char* dev_info_argv[1];
+    if (asprintf(&dev_info_argv[0], "DEVNAME=%s", devname) < 0)
+        return 1;
+    struct cuse_info ci = {.dev_major = 0,
+                           .dev_minor = 0,
+                           .dev_info_argc = 1,
+                           .dev_info_argv = (const char**)dev_info_argv,
+                           .flags = CUSE_UNRESTRICTED_IOCTL};
+
+    static const struct cuse_lowlevel_ops clops = {.init = 0,
+                                                   .init_done = 0,
+                                                   .destroy = 0,
+                                                   .open = cuse_open,
+                                                   .read = cuse_read,
+                                                   .write = cuse_write,
+                                                   .flush = 0,
+                                                   .release = cuse_close,
+                                                   .fsync = 0,
+                                                   .ioctl = cuse_ioctl,
+                                                   .poll = 0};
+
+    void* userdata = nullptr;
+
+    const char* xargv[] = {"", "-f"};
+    int xargc = background ? 1 : 2;
+
+    struct fuse_session* se;
+    int multithreaded; // filled based on the "-s" argv option
+
+    se = cuse_lowlevel_setup(xargc, (char**)xargv, &ci, &clops, &multithreaded, userdata);
+    if (se == NULL)
+        return 1;
+
+    // we don't do multithreading
+    int res = fuse_session_loop(se);
+
+    cuse_lowlevel_teardown(se);
+    if (res == -1)
+        return 1;
+
+    return 0;
+}
+
+/****************************************************************************************
+ * END OF CUSE CODE
+ ***************************************************************************************/
 
 /******************************************************************************************
  * The code below was taken and adapted from i2ctransfer.c from the package i2c-tools-4.3
