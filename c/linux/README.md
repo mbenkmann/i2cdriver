@@ -33,13 +33,17 @@ be used with the I²Cdriver device.
 # OPTIONS
 Long options can be abbreviated to a unique prefix.
 
-`--help`                Print usage and exit.
+`--help`               Print usage and exit.
+
+`-v`   
+`--verbose`            Verbose output.
+
 
 `-d[<name>]`   
 `--dev[=<name>]`       (requires /dev/cuse permissions) create /dev/`<name>` to emulate a
                      /dev/i2c-...  bus device.
 
-`-b`, `--background`      Handle --dev in the background.
+`-b`, `--background`     Handle --dev in the background.
 
 `-t <ttypath>`   
 `--tty=<ttypath>`      Path to the ttyUSB device.
@@ -71,7 +75,7 @@ Long options can be abbreviated to a unique prefix.
                      and decode them to stdout.
 
 `-x <data>`  
-`--xfer=<data>`    Perform I2C transfer(s) according to `<data>`. See below for details.
+`--xfer=<data>`        Perform I2C transfer(s) according to `<data>`. See below for details.
 
 `--pec`                Attach a Packet Error Checking byte to each subsequent
                      write-only `--xfer` datastream. Report PEC for read and write transfers.

@@ -38,7 +38,7 @@ char pullups[2] = {(char)255, (char)255};
 struct i2c_msg msgs[I2C_RDWR_IOCTL_MAX_MSGS];
 int nmsgs;
 bool add_pec = false;
-bool debug_cuse = true;
+bool debug_cuse = false;
 int cuse_open_count = 0;
 
 bool parse_transfer(int argc, const char* argv[], struct i2c_msg (&msgs)[I2C_RDWR_IOCTL_MAX_MSGS], int& nmsgs);
@@ -157,6 +157,7 @@ enum optionIndex
 {
     UNKNOWN,
     HELP,
+    VERBOSE,
     DEV,
     BACKGROUND,
     TTY,
@@ -178,6 +179,7 @@ const option::Descriptor usage[] = {
      "   (c) 2022 Matthias S.Benkmann\n\n"
      "OPTIONS:\nLong options can be abbreviated to any unique prefix.\n"},
     {HELP, 0, "", "help", Arg::None, "  \t--help  \tPrint usage and exit."},
+    {VERBOSE, 0, "v", "verbose", Arg::None, "  -v, \t--verbose  \tVerbose output."},
     {DEV, 0, "d", "dev", Arg::Required,
      "  -d[<name>], \t--dev[=<name>]"
      "  \t(requires /dev/cuse permissions) create /dev/<name> to emulate a /dev/i2c-... bus device."},
@@ -799,6 +801,11 @@ int main(int argc, char* argv[])
     {
         fprintf(stderr, "At most one --dev argument is allowed\n");
         return 1;
+    }
+
+    if (options[VERBOSE])
+    {
+        debug_cuse = true;
     }
 
     switch (options[TTY].count())
